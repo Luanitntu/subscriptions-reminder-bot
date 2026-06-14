@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BillingType {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+model Subscription {
+  id              String             @id @default(cuid())
+  name            String             @unique
+  category        String?
+  notes           String?
+  cost            Float
+  currency        String             @default("VND")
+  billingType     BillingType
+  billingInterval Int                @default(1)
+  nextDueDate     DateTime
+  lastPaidDate    DateTime?
+  isAutoRenew     Boolean            @default(true)
+  status          SubscriptionStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  cancelledAt     DateTime?
+
+  paymentHistory   PaymentHistory[]
+  notificationLogs NotificationLog[]
+}
+
+model PaymentHistory {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paidAmount     Float
+  paidAt         DateTime
+  note           String?
+  createdAt      DateTime     @default(now())
+}
+
+model NotificationLog {
+  id               String       @id @default(cuid())
+  subscriptionId   String
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  notificationType String
+  sentDate         DateTime
+
+  @@unique([subscriptionId, notificationType, sentDate])
+}

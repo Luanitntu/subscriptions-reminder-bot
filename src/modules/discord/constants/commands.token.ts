@@ -1,0 +1,1 @@
+export const SLASH_COMMANDS = 'SLASH_COMMANDS';
