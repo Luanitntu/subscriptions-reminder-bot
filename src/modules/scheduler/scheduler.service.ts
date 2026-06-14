@@ -67,7 +67,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         await this.notificationService.logNotification(sub.id, notifType);
         sent++;
       } catch (err) {
-        this.logger.error(`Failed to send reminder for ${sub.name}: ${err.message}`);
+        this.logger.error(`Failed to send reminder for ${sub.name}: ${err}`);
       }
     }
 

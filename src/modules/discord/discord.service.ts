@@ -82,8 +82,8 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     try {
       await command.execute(interaction);
     } catch (err) {
-      this.logger.error(`Error executing /${interaction.commandName}: ${err.message}`);
-      const reply = { content: `❌ Lỗi: ${err.message}`, ephemeral: true };
+      this.logger.error(`Error executing /${interaction.commandName}: ${err}`);
+      const reply = { content: `❌ Lỗi: ${err}`, ephemeral: true };
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(reply);
       } else {
@@ -99,7 +99,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     try {
       await command.autocomplete(interaction);
     } catch (err) {
-      this.logger.error(`Autocomplete error for /${interaction.commandName}: ${err.message}`);
+      this.logger.error(`Autocomplete error for /${interaction.commandName}: ${err}`);
       await interaction.respond([]);
     }
   }

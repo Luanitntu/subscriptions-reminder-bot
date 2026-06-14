@@ -8,8 +8,8 @@ import {
 import { BillingType } from '@prisma/client';
 import { SlashCommand } from '../interfaces/command.interface';
 import { SubscriptionService } from '../../subscription/subscription.service';
-import { formatCurrency, formatBillingCycle } from '../../../shared/utils/format.util';
-import { formatFullDate, parseDateInput } from '../../../shared/utils/date.util';
+import { formatCurrency, formatBillingCycle, buildCategoryChoices } from '../../../shared/utils/format.util';
+import { formatFullDate, parseDateInput, buildDateAutocomplete } from '../../../shared/utils/date.util';
 
 @Injectable()
 export class EditSubscriptionCommand implements SlashCommand {
@@ -26,7 +26,11 @@ export class EditSubscriptionCommand implements SlashCommand {
       o.setName('cost').setDescription('Chi phí mới').setRequired(false).setMinValue(0),
     )
     .addStringOption((o) =>
-      o.setName('next-due-date').setDescription('Ngày đến hạn mới (YYYY-MM-DD)').setRequired(false),
+      o
+        .setName('next-due-date')
+        .setDescription('Ngày đến hạn mới (DD/MM/YYYY) — gõ để chọn nhanh')
+        .setRequired(false)
+        .setAutocomplete(true),
     )
     .addStringOption((o) =>
       o
@@ -34,10 +38,13 @@ export class EditSubscriptionCommand implements SlashCommand {
         .setDescription('Loại chu kỳ mới')
         .setRequired(false)
         .addChoices(
-          { name: 'Hàng tháng', value: 'MONTH' },
-          { name: 'Hàng năm', value: 'YEAR' },
-          { name: 'Hàng tuần', value: 'WEEK' },
-          { name: 'Hàng ngày', value: 'DAY' },
+          { name: 'Hàng tháng', value: 'MONTH:1' },
+          { name: '2 tháng', value: 'MONTH:2' },
+          { name: '3 tháng', value: 'MONTH:3' },
+          { name: '6 tháng', value: 'MONTH:6' },
+          { name: 'Hàng năm', value: 'YEAR:1' },
+          { name: 'Hàng tuần', value: 'WEEK:1' },
+          { name: 'Hàng ngày', value: 'DAY:1' },
         ),
     )
     .addStringOption((o) =>
@@ -52,10 +59,18 @@ export class EditSubscriptionCommand implements SlashCommand {
         ),
     )
     .addIntegerOption((o) =>
-      o.setName('billing-interval').setDescription('Khoảng cách chu kỳ mới').setRequired(false).setMinValue(1),
+      o
+        .setName('billing-interval')
+        .setDescription('Tùy chỉnh khoảng cách chu kỳ (ghi đè lựa chọn ở trên)')
+        .setRequired(false)
+        .setMinValue(1),
     )
     .addStringOption((o) =>
-      o.setName('category').setDescription('Danh mục mới').setRequired(false),
+      o
+        .setName('category')
+        .setDescription('Danh mục mới (chọn danh mục có sẵn hoặc gõ tên mới)')
+        .setRequired(false)
+        .setAutocomplete(true),
     )
     .addStringOption((o) =>
       o.setName('notes').setDescription('Ghi chú mới').setRequired(false),
@@ -77,7 +92,7 @@ export class EditSubscriptionCommand implements SlashCommand {
     const newName = interaction.options.getString('new-name');
     const cost = interaction.options.getNumber('cost');
     const nextDueDateStr = interaction.options.getString('next-due-date');
-    const billingType = interaction.options.getString('billing-type') as BillingType | null;
+    const billingChoice = interaction.options.getString('billing-type');
     const currency = interaction.options.getString('currency');
     const billingInterval = interaction.options.getInteger('billing-interval');
     const category = interaction.options.getString('category');
@@ -86,7 +101,12 @@ export class EditSubscriptionCommand implements SlashCommand {
     if (newName) updates.name = newName;
     if (cost !== null) updates.cost = cost;
     if (nextDueDateStr) updates.nextDueDate = parseDateInput(nextDueDateStr);
-    if (billingType) updates.billingType = billingType;
+    if (billingChoice) {
+      const [type, presetInterval] = billingChoice.split(':') as [BillingType, string];
+      updates.billingType = type;
+      // If no manual interval was provided, apply the preset's interval (e.g. "3 months" -> 3)
+      if (billingInterval === null) updates.billingInterval = parseInt(presetInterval, 10);
+    }
     if (currency) updates.currency = currency;
     if (billingInterval !== null) updates.billingInterval = billingInterval;
     if (category !== null) updates.category = category;
@@ -115,8 +135,20 @@ export class EditSubscriptionCommand implements SlashCommand {
   }
 
   async autocomplete(interaction: AutocompleteInteraction) {
-    const focused = interaction.options.getFocused();
-    const results = await this.subscriptionService.searchNames(focused, ['ACTIVE', 'PAUSED']);
+    const focused = interaction.options.getFocused(true);
+
+    if (focused.name === 'next-due-date') {
+      await interaction.respond(buildDateAutocomplete(focused.value));
+      return;
+    }
+
+    if (focused.name === 'category') {
+      const categories = await this.subscriptionService.searchCategories(focused.value);
+      await interaction.respond(buildCategoryChoices(categories, focused.value));
+      return;
+    }
+
+    const results = await this.subscriptionService.searchNames(focused.value, ['ACTIVE', 'PAUSED']);
     await interaction.respond(results.map((s) => ({ name: s.name, value: s.name })));
   }
 }

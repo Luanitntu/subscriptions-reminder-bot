@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ActionRowBuilder,
   AutocompleteInteraction,
+  ButtonBuilder,
+  ButtonStyle,
   ChatInputCommandInteraction,
+  ComponentType,
+  EmbedBuilder,
   SlashCommandBuilder,
 } from 'discord.js';
 import { SlashCommand } from '../interfaces/command.interface';
@@ -19,17 +24,59 @@ export class DeleteSubscriptionCommand implements SlashCommand {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   async execute(interaction: ChatInputCommandInteraction) {
-    await interaction.deferReply({ ephemeral: true });
-
     const name = interaction.options.getString('name', true);
     const sub = await this.subscriptionService.findByName(name);
     if (!sub) {
-      await interaction.editReply(`❌ Không tìm thấy subscription **${name}**.`);
+      await interaction.reply({ content: `❌ Không tìm thấy subscription **${name}**.`, ephemeral: true });
       return;
     }
 
-    await this.subscriptionService.delete(sub.id);
-    await interaction.editReply(`🗑️ Đã xóa subscription **${name}** khỏi hệ thống.`);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('confirm-delete').setLabel('Confirm').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('cancel-delete').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+    );
+
+    const embed = new EmbedBuilder()
+      .setColor(0xff9900)
+      .setTitle('⚠️ Bạn có chắc chắn?')
+      .setDescription(
+        `Xóa **${sub.name}** sẽ xóa **toàn bộ lịch sử thanh toán** liên quan.\nHành động này **không thể hoàn tác**.`,
+      );
+
+    const response = await interaction.reply({
+      embeds: [embed],
+      components: [row],
+      ephemeral: true,
+    });
+
+    try {
+      const click = await response.awaitMessageComponent({
+        componentType: ComponentType.Button,
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 30_000,
+      });
+
+      if (click.customId === 'confirm-delete') {
+        await this.subscriptionService.delete(sub.id);
+        await click.update({
+          content: `🗑️ Đã xóa **${sub.name}** khỏi hệ thống.`,
+          embeds: [],
+          components: [],
+        });
+      } else {
+        await click.update({
+          content: `✅ Đã hủy. **${sub.name}** vẫn được giữ nguyên.`,
+          embeds: [],
+          components: [],
+        });
+      }
+    } catch {
+      await interaction.editReply({
+        content: '⏱️ Hết thời gian xác nhận — đã hủy thao tác xóa.',
+        embeds: [],
+        components: [],
+      });
+    }
   }
 
   async autocomplete(interaction: AutocompleteInteraction) {
