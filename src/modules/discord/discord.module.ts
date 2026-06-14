@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { ExportModule } from '../export/export.module';
+import { NotificationModule } from '../notification/notification.module';
 import { DiscordService } from './discord.service';
 import { SLASH_COMMANDS } from './constants/commands.token';
 import { SlashCommand } from './interfaces/command.interface';
@@ -19,6 +20,7 @@ import { ExportCsvCommand } from './commands/export-csv.command';
 import { HelpCommand } from './commands/help.command';
 import { SubscriptionDetailCommand } from './commands/subscription-detail.command';
 import { StatsCommand } from './commands/stats.command';
+import { TestReminderCommand } from './commands/test-reminder.command';
 
 const COMMAND_PROVIDERS = [
   AddSubscriptionCommand,
@@ -36,10 +38,11 @@ const COMMAND_PROVIDERS = [
   StatsCommand,
   ExportCsvCommand,
   HelpCommand,
+  TestReminderCommand,
 ];
 
 @Module({
-  imports: [SubscriptionModule, ExportModule],
+  imports: [SubscriptionModule, ExportModule, NotificationModule],
   providers: [
     ...COMMAND_PROVIDERS,
     {
