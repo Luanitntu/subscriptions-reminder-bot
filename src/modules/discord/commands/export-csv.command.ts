@@ -9,7 +9,7 @@ import { ExportService } from '../../export/export.service';
 export class ExportCsvCommand implements SlashCommand {
   data = new SlashCommandBuilder()
     .setName('export-csv')
-    .setDescription('Xuất dữ liệu subscriptions và lịch sử thanh toán ra file CSV')
+    .setDescription('Xuất dữ liệu subscriptions và lịch sử thanh toán ra file')
     .addStringOption((o) =>
       o
         .setName('type')
@@ -19,6 +19,16 @@ export class ExportCsvCommand implements SlashCommand {
           { name: 'Tất cả', value: 'ALL' },
           { name: 'Subscriptions', value: 'SUBSCRIPTIONS' },
           { name: 'Lịch sử thanh toán', value: 'PAYMENTS' },
+        ),
+    )
+    .addStringOption((o) =>
+      o
+        .setName('format')
+        .setDescription('Định dạng xuất (mặc định: Bảng đẹp)')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Bảng đẹp (.txt)', value: 'TABLE' },
+          { name: 'CSV (cho Excel)', value: 'CSV' },
         ),
     );
 
@@ -31,27 +41,37 @@ export class ExportCsvCommand implements SlashCommand {
     await interaction.deferReply({ ephemeral: true });
 
     const type = interaction.options.getString('type') || 'ALL';
+    const format = interaction.options.getString('format') || 'TABLE';
     const timestamp = dayjs().format('YYYY-MM-DD');
+    const isTable = format === 'TABLE';
     const files: AttachmentBuilder[] = [];
 
     if (type === 'SUBSCRIPTIONS' || type === 'ALL') {
       const subscriptions = await this.subscriptionService.findAll();
-      const csv = this.exportService.generateSubscriptionsCsv(subscriptions);
+      const buffer = isTable
+        ? this.exportService.generateSubscriptionsTable(subscriptions)
+        : this.exportService.generateSubscriptionsCsv(subscriptions);
       files.push(
-        new AttachmentBuilder(csv, { name: `subscriptions-${timestamp}.csv` }),
+        new AttachmentBuilder(buffer, {
+          name: `subscriptions-${timestamp}.${isTable ? 'txt' : 'csv'}`,
+        }),
       );
     }
 
     if (type === 'PAYMENTS' || type === 'ALL') {
       const history = await this.subscriptionService.getPaymentHistory();
-      const csv = this.exportService.generatePaymentHistoryCsv(history);
+      const buffer = isTable
+        ? this.exportService.generatePaymentHistoryTable(history)
+        : this.exportService.generatePaymentHistoryCsv(history);
       files.push(
-        new AttachmentBuilder(csv, { name: `payment-history-${timestamp}.csv` }),
+        new AttachmentBuilder(buffer, {
+          name: `payment-history-${timestamp}.${isTable ? 'txt' : 'csv'}`,
+        }),
       );
     }
 
     await interaction.editReply({
-      content: `📎 Xuất CSV thành công (${files.length} file)`,
+      content: `📎 Xuất ${isTable ? 'bảng' : 'CSV'} thành công (${files.length} file)`,
       files,
     });
   }

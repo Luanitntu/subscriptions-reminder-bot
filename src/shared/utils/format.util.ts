@@ -4,6 +4,10 @@ export function formatCurrency(amount: number, currency: string): string {
   return `${amount.toLocaleString('vi-VN')} ${currency}`;
 }
 
+export function formatNumber(amount: number): string {
+  return Math.round(amount).toLocaleString('vi-VN');
+}
+
 export function formatBillingCycle(billingType: BillingType, interval: number): string {
   const unit = { DAY: 'ngày', WEEK: 'tuần', MONTH: 'tháng', YEAR: 'năm' }[billingType];
   return interval === 1 ? `Mỗi ${unit}` : `Mỗi ${interval} ${unit}`;
@@ -15,6 +19,15 @@ export function formatBillingCycleEn(billingType: BillingType, interval: number)
   }
   const unit = { DAY: 'days', WEEK: 'weeks', MONTH: 'months', YEAR: 'years' }[billingType];
   return `Every ${interval} ${unit}`;
+}
+
+// Friendly Vietnamese billing label: "Hàng tháng", "6 tháng", "Hàng năm"...
+export function formatBillingLabel(billingType: BillingType, interval: number): string {
+  if (interval === 1) {
+    return { DAY: 'Hàng ngày', WEEK: 'Hàng tuần', MONTH: 'Hàng tháng', YEAR: 'Hàng năm' }[billingType];
+  }
+  const unit = { DAY: 'ngày', WEEK: 'tuần', MONTH: 'tháng', YEAR: 'năm' }[billingType];
+  return `${interval} ${unit}`;
 }
 
 export function escapeMarkdown(text: string): string {
@@ -31,6 +44,28 @@ export function buildCategoryChoices(existing: string[], typed: string): { name:
   return choices.slice(0, 25);
 }
 
-export function padEnd(text: string, length: number): string {
-  return text.padEnd(length, ' ');
+// Render an aligned monospace ASCII table (for .txt exports / code blocks).
+export function renderTextTable(
+  headers: string[],
+  rows: string[][],
+  aligns: ('left' | 'right')[] = [],
+  totalRow?: string[],
+): string {
+  const measure = (s: string) => (s ?? '').normalize('NFC').length;
+  const widths = headers.map((_, i) =>
+    Math.max(measure(headers[i]), ...rows.map((r) => measure(r[i])), totalRow ? measure(totalRow[i]) : 0),
+  );
+
+  const pad = (text: string, i: number) => {
+    const t = (text ?? '').normalize('NFC');
+    const space = ' '.repeat(Math.max(0, widths[i] - t.length));
+    return aligns[i] === 'right' ? space + t : t + space;
+  };
+
+  const line = (cells: string[]) => cells.map((c, i) => pad(c, i)).join(' | ');
+  const sep = widths.map((w) => '-'.repeat(w)).join('-+-');
+
+  const out = [line(headers), sep, ...rows.map(line)];
+  if (totalRow) out.push(sep, line(totalRow));
+  return out.join('\n');
 }
