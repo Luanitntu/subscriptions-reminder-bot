@@ -19,6 +19,7 @@ import { ExportCsvCommand } from './commands/export-csv.command';
 import { HelpCommand } from './commands/help.command';
 import { SubscriptionDetailCommand } from './commands/subscription-detail.command';
 import { StatsCommand } from './commands/stats.command';
+import { LogCommand } from './commands/log.command';
 
 const COMMAND_PROVIDERS = [
   AddSubscriptionCommand,
@@ -36,6 +37,7 @@ const COMMAND_PROVIDERS = [
   StatsCommand,
   ExportCsvCommand,
   HelpCommand,
+  LogCommand,
 ];
 
 @Module({

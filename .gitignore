@@ -12,6 +12,7 @@ dist/
 prisma/migrations/
 
 # Logs
+logs/
 *.log
 npm-debug.log*
 
